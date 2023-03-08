@@ -2,11 +2,11 @@
 pragma solidity 0.8.17;
 
 import "./XLT.sol";
-import "../interfaces/IMinter.sol";
-import "../interfaces/IVotingEscrow.sol";
-import "../interfaces/IGombocController.sol";
-import "../interfaces/IFeeDistributor.sol";
-import "../interfaces/IGombocFeeDistributor.sol";
+import "./interfaces/IMinter.sol";
+import "./interfaces/IVotingEscrow.sol";
+import "./interfaces/IGombocController.sol";
+import "./interfaces/IFeeDistributor.sol";
+import "./interfaces/IGombocFeeDistributor.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
