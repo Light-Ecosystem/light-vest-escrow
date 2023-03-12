@@ -49,6 +49,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     uint256 public ltTotalClaimed;  // total claimed amount of LT rewards
     uint256 public ltRewardsWithdrew; // the LT amount had withrew , only for the partial of rewards
     uint256 public ltWithdrew; // the LT amount had withrew , only for the partial of unlocded
+    uint256 public lastEndtime; // save the last endtime of lock
+    uint256 constant public WEEK = 7 * 86400;
     uint256 constant public LOCK_TIME = 4 * 365 * 86400; // 4 years
 
     // if true, withdrawLT(to,amount) can by called by anyone
@@ -118,9 +120,11 @@ contract LightTeamVaultManager is OwnableUpgradeable {
             _votingEscrow.createLock(claimAmount, endTime, 0, 0, bytes(""));
         } else {
             _votingEscrow.increaseAmount(claimAmount, 0, 0, bytes(""));
-            _votingEscrow.increaseUnlockTime(endTime);
+            if ((endTime / WEEK) * WEEK > lastEndtime)
+                _votingEscrow.increaseUnlockTime(endTime);
         }
 
+        lastEndtime = (endTime / WEEK) * WEEK;
         return claimAmount;
     }
 

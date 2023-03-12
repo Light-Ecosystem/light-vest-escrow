@@ -19,7 +19,7 @@ async function main() {
     // deploye Manager
     const VaultManager = await ethers.getContractFactory("LightTeamVaultManager");
     const vaultManager = await upgrades.deployProxy(VaultManager, [MultiSigWallet, lightTeamVault.address, feeDistributorAddress, gombocFeeDistributorAddress, stakingHopeAddress]);
-    await lightTeamVault.deployed();
+    await vaultManager.deployed();
     console.log(`vaultManager deployed to ${vaultManager.address}`);
 
     // transfer ownership from valut to manager
