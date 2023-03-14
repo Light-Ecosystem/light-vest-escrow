@@ -2,10 +2,12 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
 
-const ONE_ETHER = ethers.utils.parseEther("1");
+const ONE = ethers.utils.parseEther("1");
+const ONE_DAY = 86400; 
+const WEEK = 7 * ONE_DAY; 
+const MAXTIME = 208 * WEEK;
 const LOCKED_AMOUNT = ethers.utils.parseEther("300000000000");
-const UNLOCKE_AMOUNT_PER_DAY = LOCKED_AMOUNT.div(208*7).div(ONE_ETHER);
-const DAY = 24 * 60 * 60;
+const UNLOCK_PER_DAY = LOCKED_AMOUNT.div(208*7);
 
 describe("LightTeamVault", function () {
     async function fixture() {
@@ -17,72 +19,108 @@ describe("LightTeamVault", function () {
         await lightTeamVault.deployed();
 
         await mockLT.transfer(lightTeamVault.address, LOCKED_AMOUNT);
-        return {mockLT, lightTeamVault}
+        const [owner, alice] = await ethers.getSigners();
+        return { owner, alice, mockLT, lightTeamVault }
     }
 
-    it("Should holding a certain quantity of LT", async function () {
-        const { mockLT, lightTeamVault } = await loadFixture(fixture);
-        expect(await mockLT.balanceOf(lightTeamVault.address)).to.equal(LOCKED_AMOUNT);
+    describe("claimTo", async () => {
+        it("should be revert if caller is not owner", async function () {
+            const { alice, lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+
+            await expect(lightTeamVault.connect(alice).claimTo(alice.address))
+            .to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("should be revert if 'to' is address(0)", async function () {
+            const { lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+
+            await expect(lightTeamVault.claimTo(ethers.constants.AddressZero))
+            .to.be.revertedWith("LightTeamVault: zero address");
+        });
+
+        it("should be revert if claim interval less than 1 day", async function () {
+            const { owner, lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+
+            await lightTeamVault.claimTo(owner.address);
+            await time.increase(60 * 60);
+
+            await expect(lightTeamVault.claimTo(ethers.constants.AddressZero))
+            .to.be.revertedWith("LightTeamVault: zero address");
+        });
+
+        it("after claim, the balanceOf should be right ", async function () {
+            const { owner, alice, lightTeamVault, mockLT } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+
+            await lightTeamVault.claimTo(alice.address);
+            expect(await mockLT.balanceOf(alice.address)).to.equal(UNLOCK_PER_DAY);
+
+            await time.increase(ONE_DAY);
+            await lightTeamVault.claimTo(alice.address);
+            expect(await lightTeamVault.claimedAmount()).to.equal(UNLOCK_PER_DAY.mul(2));
+            expect(await lightTeamVault.lastClaimedTime()).to.equal(await time.latest());
+        });
     });
 
-    it("within a day, the claimable amount should be right", async function () {
-        const { lightTeamVault } = await loadFixture(fixture);
-        const claimTime = (await time.latest()) + DAY;
-        await time.increaseTo(claimTime);
+    describe("getTotalUnlockedAmount", async () => {
+        it("within a day , the unlocked amount should zero", async function () {
+            const { lightTeamVault } = await loadFixture(fixture); 
+            const startTime = await lightTeamVault.startTime();
+            await time.increaseTo(startTime.add(ONE_DAY).sub(1));
 
-        const claimableAmount = await lightTeamVault.getClaimableAmount();
-        expect(claimableAmount.div(ONE_ETHER)).to.equal(UNLOCKE_AMOUNT_PER_DAY);
-    })
+            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(0);
+        });
 
-    it("11 days later , the claimable amount should be right", async function () {
-        const { lightTeamVault } = await loadFixture(fixture);
-        const HOURS_IN_SECONDES = 11 * DAY;
-        const claimTime = (await time.latest()) + HOURS_IN_SECONDES;
-        await time.increaseTo(claimTime);
+        it("the unlocked amount should right", async function () {
+            const { lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+            
+            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY);
 
-        const claimableAmount = await lightTeamVault.getClaimableAmount();
-        expect(claimableAmount.div(ONE_ETHER)).to.equal(UNLOCKE_AMOUNT_PER_DAY.mul(11));
-    })
+            await time.increase(ONE_DAY);
+            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY.mul(2));
+        });
 
-    it("208 weeks later, the unlocked amount should be right", async function () {
-        const { lightTeamVault } = await loadFixture(fixture);
-        const claimTime = (await time.latest()) + 208 * 7 * DAY;
-        await time.increaseTo(claimTime);
-        const claimableAmount = await lightTeamVault.getClaimableAmount();
-        expect(claimableAmount.div(ONE_ETHER)).to.equal(LOCKED_AMOUNT.div(ONE_ETHER).sub(1));
-    })
-
-    it("after claim, claimed amount and balaceOf 'to' should be right", async function () {
-        const { mockLT, lightTeamVault } = await loadFixture(fixture);
-        const claimTime = (await time.latest()) + 2 * DAY;
-        await time.increaseTo(claimTime);
-
-        const otherAccount = (await ethers.getSigners())[1];
-        await lightTeamVault.claimTo(otherAccount.address);
-        let bal = (await mockLT.balanceOf(otherAccount.address)).div(ONE_ETHER);
-        expect(bal).to.equal(UNLOCKE_AMOUNT_PER_DAY.mul(2));
-        expect((await lightTeamVault.claimedAmount()).div(ONE_ETHER)).to.equal(bal);
-    })
-
-    it("should revert if caller was not owner", async function () {
-        const { lightTeamVault } = await loadFixture(fixture);
-        const claimTime = (await time.latest()) + DAY;
-        await time.increaseTo(claimTime);
-
-        const otherAccount = (await ethers.getSigners())[1];
-        await expect(lightTeamVault.connect(otherAccount)
-            .claimTo(otherAccount.address)).to.be.revertedWith(
-            "Ownable: caller is not the owner")
+        it("208 weeks later, the unlocked amount should right", async function () {
+            const { lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + MAXTIME;
+            await time.increaseTo(claimTime);
+            
+            expect((await lightTeamVault.getTotalUnlockedAmount()).div(ONE)).to.equal(LOCKED_AMOUNT.div(ONE).sub(1));
+        });
     });
 
-    it("should revert if the claim interval less than 1 day", async function () {
-        const { lightTeamVault } = await loadFixture(fixture);
-        const claimTime = (await time.latest()) + DAY;
-        await time.increaseTo(claimTime);
-        const [owner,] = await ethers.getSigners();
-        await lightTeamVault.claimTo(owner.address);
-        await time.increase(DAY - 4);
-        await expect(lightTeamVault.claimTo(owner.address))
-            .to.be.revertedWith("LightTeamVault: claim interval must gt one day");
+    describe("getClaimableAmount", async () => {
+        it("if not claim, the claimable amount should be equal to unloced amount", async function () {
+            const { lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+
+            // let claimedAmount = await lightTeamVault.claimedAmount();
+            expect(await lightTeamVault.getClaimableAmount()).to.equal(UNLOCK_PER_DAY);
+        });
+
+        it("after claim, the claimedAmount amount should be right", async function () {
+            const { owner, lightTeamVault } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+
+            await lightTeamVault.claimTo(owner.address);
+            let claimedAmount = await lightTeamVault.claimedAmount();
+            expect(claimedAmount).to.equal(UNLOCK_PER_DAY);
+
+            await time.increase(ONE_DAY);
+            await lightTeamVault.claimTo(owner.address);
+            claimedAmount = await lightTeamVault.claimedAmount();
+            expect(claimedAmount).to.equal(UNLOCK_PER_DAY.mul(2));
+        });
     });
 });

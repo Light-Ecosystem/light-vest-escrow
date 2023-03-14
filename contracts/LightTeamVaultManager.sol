@@ -34,6 +34,12 @@ interface ILightGomboc {
 }
 
 contract LightTeamVaultManager is OwnableUpgradeable {
+
+    event SetCanWithdrawByAnyone(bool indexed value);
+    event WithdrawLTRewards(address indexed to, uint256 amount);
+    event WithdrawLT(address indexed operator, address indexed to, uint256 amount);
+    event WithdrawStHOPE(address indexed to, uint256 amount);
+
     address public lightTeamVault;
     address public feeDistributor;
     address public gombocFeeDistributor;
@@ -51,7 +57,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     uint256 public ltWithdrew; // the LT amount had withrew , only for the partial of unlocded
     uint256 public lastEndtime; // save the last endtime of lock
     uint256 constant public WEEK = 7 * 86400;
-    uint256 constant public LOCK_TIME = 4 * 365 * 86400; // 4 years
+    uint256 constant public LOCK_TIME = 208 * WEEK; // 208 weeks
 
     // if true, withdrawLT(to,amount) can by called by anyone
     // equivalent amount of XLT will be burn from "to"
@@ -96,6 +102,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     function setCanWithdrawByAnyone(bool _canWithdrawByAnyone) external onlyOwner {
         require(canWithdrawByAnyone != _canWithdrawByAnyone, "LightTeamVaultManager: wrong value to set");
         canWithdrawByAnyone = _canWithdrawByAnyone;
+
+        emit SetCanWithdrawByAnyone(_canWithdrawByAnyone);
     }
     
     /***
@@ -125,6 +133,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         }
 
         lastEndtime = (endTime / WEEK) * WEEK;
+        
         return claimAmount;
     }
 
@@ -252,6 +261,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         require(amount <= ltTotalClaimed - ltRewardsWithdrew, "LightTeamVaultManager: insufficient rewards to Withraw");
         ltRewardsWithdrew += amount;
         TransferHelper.doTransferOut(token, to, amount);
+
+        emit WithdrawLTRewards(to, amount);
     }
 
     /***
@@ -261,19 +272,16 @@ contract LightTeamVaultManager is OwnableUpgradeable {
      */
     function withdrawLT(address to, uint amount) external {
         require(msg.sender == owner() || canWithdrawByAnyone, "LightTeamVaultManager: caller is not the owner");
-        uint256 remainingRewards = ltTotalClaimed - ltRewardsWithdrew;
-        uint256 totalBalanceOf = IERC20(token).balanceOf(address(this));
-        require(amount <= totalBalanceOf - remainingRewards, "LightTeamVaultManager: insufficient unlocked balances to Withraw");
-        ltWithdrew += amount;
         if (to == address(0)) to = msg.sender;
-
         if (msg.sender != owner())
             require(msg.sender == to, "LightTeamVaultManager: invalid call");
     
         require(IERC20(xlt).balanceOf(to) >= amount, "LightTeamVaultManager: insufficient XLT to burn");
         IXlt(xlt).burn(to, amount);
+        ltWithdrew += amount;
+        TransferHelper.doTransferOut(token, to, amount);
 
-        TransferHelper.doTransferOut(token, to, amount);     
+        emit WithdrawLT(msg.sender, to, amount);
     }
 
     /***
@@ -286,6 +294,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         require(amount <= stHopeTotalClaimed - stHopeWithdrew, "LightTeamVaultManager: insufficient rewards to Withraw");
         stHopeWithdrew += amount;
         TransferHelper.doTransferOut(stHopeGomboc, to, amount);
+
+        emit WithdrawStHOPE(to, amount);
     }
 
     /***
