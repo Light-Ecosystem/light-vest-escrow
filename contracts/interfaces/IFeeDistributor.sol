@@ -30,7 +30,7 @@ interface IFeeDistributor {
     function veForAt(address _user, uint256 _timestamp) external view returns (uint256);
 
     /**
-     * @notice Get the VeLT voting percentage for `_user` in _gomboc  at `_timestamp`
+     * @notice Get the VeLT voting percentage for `_user` in _gauge  at `_timestamp`
      * @param _user Address to query voting
      * @param _timestamp Epoch time
      * @return value of voting precentage normalized to 1e18

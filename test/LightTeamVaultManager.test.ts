@@ -1,7 +1,6 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
-import { PermitSigHelper } from "./PermitSigHelper";
 
 const ONE = ethers.utils.parseEther("1");
 const ONE_DAY = 86400; 
@@ -17,14 +16,14 @@ describe("LightTeamVaultManager", function () {
         let LT = await ethers.getContractFactory("LT");
         const LightTeamVault = await ethers.getContractFactory("LightTeamVault");
         const VeLT = await ethers.getContractFactory("VotingEscrow");
-        const GombocController = await ethers.getContractFactory("GombocController");
+        const GaugeController = await ethers.getContractFactory("GaugeController");
         const Minter = await ethers.getContractFactory("Minter");
         const StakingHOPE = await ethers.getContractFactory("StakingHOPE");
         const HOPE = await ethers.getContractFactory("HOPE");
         const RestrictedList = await ethers.getContractFactory("RestrictedList");
         const FeeDistributor = await ethers.getContractFactory("FeeDistributor");
         const Admin = await ethers.getContractFactory("Admin");
-        const GombocFeeDistributor = await ethers.getContractFactory("GombocFeeDistributor");
+        const GaugeFeeDistributor = await ethers.getContractFactory("GaugeFeeDistributor");
         const Permit2Contract = await ethers.getContractFactory("Permit2");
         const SmartWalletWhitelist = await ethers.getContractFactory("SmartWalletWhitelist");
         const VaultManager = await ethers.getContractFactory("LightTeamVaultManager");
@@ -40,12 +39,12 @@ describe("LightTeamVaultManager", function () {
         const veLT = await VeLT.deploy(lt.address, permit2.address);
         await veLT.deployed();
 
-        ///deploy gombocController contract
-        const gombocController = await GombocController.deploy(lt.address, veLT.address);
-        await gombocController.deployed();
+        ///deploy gaugeController contract
+        const gaugeController = await GaugeController.deploy(lt.address, veLT.address);
+        await gaugeController.deployed();
 
         ///delopy minter contract
-        const minter = await Minter.deploy(lt.address, gombocController.address);
+        const minter = await Minter.deploy(lt.address, gaugeController.address);
         await minter.deployed();
 
         // depoly HOPE
@@ -75,9 +74,9 @@ describe("LightTeamVaultManager", function () {
         const feeDistributor = await upgrades.deployProxy(FeeDistributor, [veLT.address, startTime, hopeToken.address, stakingHope.address, owner.address]);
         await feeDistributor.deployed();
 
-        //deploy GombocFeeDistributor contract
-        const gombocFeeDistributor = await upgrades.deployProxy(GombocFeeDistributor, [gombocController.address, startTime, hopeToken.address, stakingHope.address, owner.address]);
-        await gombocFeeDistributor.deployed();
+        //deploy GaugeFeeDistributor contract
+        const gaugeFeeDistributor = await upgrades.deployProxy(GaugeFeeDistributor, [gaugeController.address, startTime, hopeToken.address, stakingHope.address, owner.address]);
+        await gaugeFeeDistributor.deployed();
 
         // deploy LigthTeamVault and transfer 300 billion LT to LigthTeamVault
         const lightTeamVault = await upgrades.deployProxy(LightTeamVault, [lt.address]);
@@ -86,7 +85,7 @@ describe("LightTeamVaultManager", function () {
         lt.transfer(lightTeamVault.address, LOCKED_AMOUNT);
         
         // deploye Manager
-        const vaultManager = await upgrades.deployProxy(VaultManager, [owner.address, lightTeamVault.address, feeDistributor.address, gombocFeeDistributor.address, stakingHope.address]);
+        const vaultManager = await upgrades.deployProxy(VaultManager, [owner.address, lightTeamVault.address, feeDistributor.address, gaugeFeeDistributor.address, stakingHope.address]);
         await vaultManager.deployed();
         // transfer ownership
         await lightTeamVault.transferOwnership(vaultManager.address);
@@ -97,7 +96,7 @@ describe("LightTeamVaultManager", function () {
         await smartWalletWhitelist.approveWallet(vaultManager.address);
         
         return { owner, alice, vaultManager, lightTeamVault,  veLT, lt, hopeToken, stakingHope, 
-            gombocController, permit2, gombocFeeDistributor, feeDistributor, minter }
+            gaugeController, permit2, gaugeFeeDistributor, feeDistributor, minter }
     }
 
     describe("claimUnlockedLTAndLockForVeLT", async () => {
@@ -370,40 +369,40 @@ describe("LightTeamVaultManager", function () {
         });
     });
 
-    describe("voteForGombocsWeights",async () => {
+    describe("voteForGaugesWeights",async () => {
         it("should revert if the lenght does not match", async function () {
             const { vaultManager, stakingHope } = await loadFixture(fixture);
-            await expect(vaultManager.voteForGombocsWeights([stakingHope.address], [1, 2]))
+            await expect(vaultManager.voteForGaugesWeights([stakingHope.address], [1, 2]))
             .to.be.revertedWith("LightTeamVaultManager: unmatched length");
             
         });
 
-        it("voteForGombocWeights with two type and two gomboc", async function () {
-            const { vaultManager, veLT, stakingHope, gombocController} = await loadFixture(fixture);
+        it("voteForGaugeWeights with two type and two gauge", async function () {
+            const { vaultManager, veLT, stakingHope, gaugeController} = await loadFixture(fixture);
 
-            //add gomboc to gombocController
+            //add gauge to gaugeController
             let name = "Staking HOPE Type";
             let weight = ethers.utils.parseEther("1");
-            let typeId = await gombocController.nGombocTypes();
-            await gombocController.addType(name, weight);
-            let name1 = "Mock Gomboc";
-            let typeId1 = await gombocController.nGombocTypes();
-            await gombocController.addType(name1, weight);
-            const MockGomboc = await ethers.getContractFactory("MockGomboc");
-            const mockGomboc = await MockGomboc.deploy();
-            await mockGomboc.deployed();
+            let typeId = await gaugeController.nGaugeTypes();
+            await gaugeController.addType(name, weight);
+            let name1 = "Mock Gauge";
+            let typeId1 = await gaugeController.nGaugeTypes();
+            await gaugeController.addType(name1, weight);
+            const MockGauge = await ethers.getContractFactory("MockGauge");
+            const mockGauge = await MockGauge.deploy();
+            await mockGauge.deployed();
 
-            await gombocController.addGomboc(stakingHope.address, typeId, 0);
-            await gombocController.addGomboc(mockGomboc.address, typeId1, 0);
+            await gaugeController.addGauge(stakingHope.address, typeId, 0);
+            await gaugeController.addGauge(mockGauge.address, typeId1, 0);
             
             // lock lt from manager
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
         
-            //voting stakingHope gomboc
+            //voting stakingHope gauge
             let userWeight = 5000;
-            await vaultManager.voteForGombocsWeights([stakingHope.address, mockGomboc.address], [userWeight, userWeight]);
+            await vaultManager.voteForGaugesWeights([stakingHope.address, mockGauge.address], [userWeight, userWeight]);
     
             let blcoTime = await time.latest();
             let lockEnd = await veLT.lockedEnd(vaultManager.address);
@@ -413,59 +412,59 @@ describe("LightTeamVaultManager", function () {
             let gSlope = slope.mul(userWeight).div(10000);
             let Wg = gSlope.mul((lockEnd.toNumber() - nextTime));
             // console.log(Wg.toString());
-            expect(await gombocController.getGombocWeight(mockGomboc.address)).to.equal(Wg);
-            expect(await gombocController.getGombocWeight(stakingHope.address)).to.equal(Wg);
-            expect(await gombocController.getWeightsSumPreType(typeId)).to.equal(Wg);
-            expect(await gombocController.getWeightsSumPreType(typeId1)).to.equal(Wg);
-            expect(await gombocController.getTotalWeight()).to.equal(Wg.mul(weight).mul(2));
+            expect(await gaugeController.getGaugeWeight(mockGauge.address)).to.equal(Wg);
+            expect(await gaugeController.getGaugeWeight(stakingHope.address)).to.equal(Wg);
+            expect(await gaugeController.getWeightsSumPreType(typeId)).to.equal(Wg);
+            expect(await gaugeController.getWeightsSumPreType(typeId1)).to.equal(Wg);
+            expect(await gaugeController.getTotalWeight()).to.equal(Wg.mul(weight).mul(2));
         }); 
     });
 
-    describe("claimFromGombocs", async () => {
-        it("should revert if the some Gomboc address is zero", async function () {
+    describe("claimFromGauges", async () => {
+        it("should revert if the some Gauge address is zero", async function () {
             const { vaultManager, stakingHope } = await loadFixture(fixture);
-            await expect(vaultManager.claimFromGombocs([stakingHope.address, ethers.constants.AddressZero]))
-            .to.be.revertedWith("LightTeamVaultManager: wrong gomboc address");
+            await expect(vaultManager.claimFromGauges([stakingHope.address, ethers.constants.AddressZero]))
+            .to.be.revertedWith("LightTeamVaultManager: wrong gauge address");
         });
 
         it("after claim, the balance and stHopeTotalClaimed should be right", async function () {
-            const { vaultManager, hopeToken, stakingHope, gombocController, gombocFeeDistributor } = await loadFixture(fixture);
+            const { vaultManager, hopeToken, stakingHope, gaugeController, gaugeFeeDistributor } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
 
-            //add gomboc to gombocController
+            //add gauge to gaugeController
             let name = "Staking HOPE Type";
             let weight = ethers.utils.parseEther("1");
-            let typeId = await gombocController.nGombocTypes();
-            await gombocController.addType(name, weight);
-            let name1 = "Mock Gomboc";
-            let typeId1 = await gombocController.nGombocTypes();
-            await gombocController.addType(name1, weight);
-            const MockGomboc = await ethers.getContractFactory("MockGomboc");
-            const mockGomboc = await MockGomboc.deploy();
-            await mockGomboc.deployed();
+            let typeId = await gaugeController.nGaugeTypes();
+            await gaugeController.addType(name, weight);
+            let name1 = "Mock Gauge";
+            let typeId1 = await gaugeController.nGaugeTypes();
+            await gaugeController.addType(name1, weight);
+            const MockGauge = await ethers.getContractFactory("MockGauge");
+            const mockGauge = await MockGauge.deploy();
+            await mockGauge.deployed();
 
-            await gombocController.addGomboc(stakingHope.address, typeId, weight);
-            await gombocController.addGomboc(mockGomboc.address, typeId1, weight);
+            await gaugeController.addGauge(stakingHope.address, typeId, weight);
+            await gaugeController.addGauge(mockGauge.address, typeId1, weight);
             
-            //voting stakingHope gomboc
-            await vaultManager.voteForGombocsWeights([stakingHope.address, mockGomboc.address], [5000, 5000]);
+            //voting stakingHope gauge
+            await vaultManager.voteForGaugesWeights([stakingHope.address, mockGauge.address], [5000, 5000]);
             await time.increase(WEEK);
-            await gombocFeeDistributor.checkpointToken();
+            await gaugeFeeDistributor.checkpointToken();
     
             ///transfer hope fee and checkpoint
             let amount = ethers.utils.parseEther("1000");
-            await hopeToken.transfer(gombocFeeDistributor.address, amount);
-            await gombocFeeDistributor.checkpointToken();
-            await gombocController.checkpointGomboc(stakingHope.address);
+            await hopeToken.transfer(gaugeFeeDistributor.address, amount);
+            await gaugeFeeDistributor.checkpointToken();
+            await gaugeController.checkpointGauge(stakingHope.address);
 
             await time.increase(WEEK);
-            await gombocFeeDistributor.checkpointToken();
+            await gaugeFeeDistributor.checkpointToken();
 
-            let balanceLast = await gombocFeeDistributor.tokenLastBalance();
-            await vaultManager.claimFromGombocs([stakingHope.address]);
-            let balanceNow = await gombocFeeDistributor.tokenLastBalance();
+            let balanceLast = await gaugeFeeDistributor.tokenLastBalance();
+            await vaultManager.claimFromGauges([stakingHope.address]);
+            let balanceNow = await gaugeFeeDistributor.tokenLastBalance();
             let totalClaimedAmount = balanceLast.sub(balanceNow);
             expect(totalClaimedAmount).to.be.equal(await stakingHope.balanceOf(vaultManager.address));
             expect(totalClaimedAmount).to.be.equal(await vaultManager.stHopeTotalClaimed());
@@ -516,15 +515,15 @@ describe("LightTeamVaultManager", function () {
         });
 
         it("claim LT from stakingHOPE", async function () {
-            const { vaultManager, hopeToken, lt, stakingHope, feeDistributor, gombocController, minter } = await loadFixture(fixture);
+            const { vaultManager, hopeToken, lt, stakingHope, feeDistributor, gaugeController, minter } = await loadFixture(fixture);
             //set minter for LT
             await lt.setMinter(minter.address);
-            ///add gomboc to gombocController
-            let name = "stHopeGomboc";
-            let typeId = await gombocController.nGombocTypes();
+            ///add gauge to gaugeController
+            let name = "stHopeGauge";
+            let typeId = await gaugeController.nGaugeTypes();
             let weight = ethers.utils.parseEther("1");
-            await gombocController.addType(name, weight);
-            await gombocController.addGomboc(stakingHope.address, typeId, weight);
+            await gaugeController.addType(name, weight);
+            await gaugeController.addGauge(stakingHope.address, typeId, weight);
 
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
@@ -572,15 +571,15 @@ describe("LightTeamVaultManager", function () {
         });
 
         it("withraw LT reward to 'to', and check 'ltRewardsWithdrew'", async function () {
-            const { owner, alice, vaultManager, hopeToken, lt, stakingHope, feeDistributor, gombocController, minter } = await loadFixture(fixture);
+            const { owner, alice, vaultManager, hopeToken, lt, stakingHope, feeDistributor, gaugeController, minter } = await loadFixture(fixture);
             //set minter for LT
             await lt.setMinter(minter.address);
-            ///add gomboc to gombocController
-            let name = "stHopeGomboc";
-            let typeId = await gombocController.nGombocTypes();
+            ///add gauge to gaugeController
+            let name = "stHopeGauge";
+            let typeId = await gaugeController.nGaugeTypes();
             let weight = ethers.utils.parseEther("1");
-            await gombocController.addType(name, weight);
-            await gombocController.addGomboc(stakingHope.address, typeId, weight);
+            await gaugeController.addType(name, weight);
+            await gaugeController.addGauge(stakingHope.address, typeId, weight);
 
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);

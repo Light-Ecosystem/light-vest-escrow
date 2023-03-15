@@ -4,12 +4,12 @@ import { FileUtils } from "../file_utils";
 
 async function main() {
     // important!!!,  set multiSig wallet first
-    const MultiSigWallet = "0x0000000000000000000000000000000000000005";
-
+    const MultiSigWallet = "0x6d78a6B8c32Bc4980bbE3b08e43F322235364670";
+                            
     let ltAddress = FileUtils.getContractAddress(Constants.LT_TOKEN);
     let feeDistributorAddress = FileUtils.getContractAddress(Constants.FeeDistributor);
-    let gombocFeeDistributorAddress = FileUtils.getContractAddress(Constants.GombocFeeDistributor);
-    let stakingHopeAddress = FileUtils.getContractAddress(Constants.STAKING_HOPE_GOMBOC);
+    let gaugeFeeDistributorAddress = FileUtils.getContractAddress(Constants.GaugeFeeDistributor);
+    let stakingHopeAddress = FileUtils.getContractAddress(Constants.STAKING_HOPE_GAUGE);
     
     const LightTeamVault = await ethers.getContractFactory("LightTeamVault");
     const lightTeamVault = await upgrades.deployProxy(LightTeamVault, [ltAddress]);
@@ -18,7 +18,7 @@ async function main() {
 
     // deploye Manager
     const VaultManager = await ethers.getContractFactory("LightTeamVaultManager");
-    const vaultManager = await upgrades.deployProxy(VaultManager, [MultiSigWallet, lightTeamVault.address, feeDistributorAddress, gombocFeeDistributorAddress, stakingHopeAddress]);
+    const vaultManager = await upgrades.deployProxy(VaultManager, [MultiSigWallet, lightTeamVault.address, feeDistributorAddress, gaugeFeeDistributorAddress, stakingHopeAddress]);
     await vaultManager.deployed();
     console.log(`vaultManager deployed to ${vaultManager.address}`);
 

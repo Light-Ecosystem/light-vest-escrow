@@ -4,9 +4,9 @@ pragma solidity 0.8.17;
 import "./XLT.sol";
 import "./interfaces/IMinter.sol";
 import "./interfaces/IVotingEscrow.sol";
-import "./interfaces/IGombocController.sol";
+import "./interfaces/IGaugeController.sol";
 import "./interfaces/IFeeDistributor.sol";
-import "./interfaces/IGombocFeeDistributor.sol";
+import "./interfaces/IGaugeFeeDistributor.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -25,7 +25,7 @@ interface IExtendVotingEscrow is IVotingEscrow {
     function locked(address user) external returns (LockedBalance memory);
 }
 
-interface ILightGomboc {
+interface ILightGauge {
     function minter() external returns (address);
     function ltToken() external returns (address);
     function controller() external returns (address);
@@ -42,8 +42,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
     address public lightTeamVault;
     address public feeDistributor;
-    address public gombocFeeDistributor;
-    address public stHopeGomboc; // this is both a Gomboc and a token 
+    address public gaugeFeeDistributor;
+    address public stHopeGauge; // this is both a Gauge and a token 
     address public votingEscrow;
 
     address public xlt;
@@ -74,23 +74,23 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         address _owner, // muitiSig
         address _lightTeamVault, 
         address _feeDistributor,
-        address _gombocFeeDistributor,
-        address _stHopeGomboc
+        address _gaugeFeeDistributor,
+        address _stHopeGauge
     ) public initializer {
         require(_owner != address(0), "LightTeamVaultManager: invalid owner address");
         require(_lightTeamVault != address(0), "LightTeamVaultManager: invalid lightTeamVault address");
         require(_feeDistributor != address(0), "LightTeamVaultManager: invalid feeDistributor address");
-        require(_gombocFeeDistributor != address(0), "LightTeamVaultManager: invalid gombocFeeDistributor address");
-        require(_stHopeGomboc != address(0), "LightTeamVaultManager: invalid stHopeGomboc address");
+        require(_gaugeFeeDistributor != address(0), "LightTeamVaultManager: invalid gaugeFeeDistributor address");
+        require(_stHopeGauge != address(0), "LightTeamVaultManager: invalid stHopeGauge address");
 
         _transferOwnership(_owner);
-        votingEscrow = ILightGomboc(_stHopeGomboc).votingEscrow();
-        token = ILightGomboc(_stHopeGomboc).ltToken();
-        stHopeGomboc = _stHopeGomboc;
+        votingEscrow = ILightGauge(_stHopeGauge).votingEscrow();
+        token = ILightGauge(_stHopeGauge).ltToken();
+        stHopeGauge = _stHopeGauge;
     
         lightTeamVault = _lightTeamVault;
         feeDistributor = _feeDistributor;
-        gombocFeeDistributor = _gombocFeeDistributor;
+        gaugeFeeDistributor = _gaugeFeeDistributor;
         
         IERC20 _xlt = new XLT(address(this));
         xlt = address(_xlt);
@@ -194,33 +194,33 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
     /***
      * @dev  Allocate voting power for changing multiple pool weights
-     * @param gombocAddress array of gombocAddress
+     * @param gaugeAddress array of gaugeAddress
      * @param userWeights array of userWeight
      */
-    function voteForGombocsWeights(
-        address[] calldata gombocAddresses, 
+    function voteForGaugesWeights(
+        address[] calldata gaugeAddresses, 
         uint256[] calldata userWeights
     ) external onlyOwner {
-        require(gombocAddresses.length < 128, "LightTeamVaultManager: length must less than 128");
-        require(gombocAddresses.length == userWeights.length, "LightTeamVaultManager: unmatched length");
+        require(gaugeAddresses.length < 128, "LightTeamVaultManager: length must less than 128");
+        require(gaugeAddresses.length == userWeights.length, "LightTeamVaultManager: unmatched length");
         
-        address _gombocController = ILightGomboc(stHopeGomboc).controller();
-        IGombocController gombocController = IGombocController(_gombocController);
-        for (uint i; i < gombocAddresses.length; ++i) {
-            gombocController.voteForGombocWeights(gombocAddresses[i], userWeights[i]);
+        address _gaugeController = ILightGauge(stHopeGauge).controller();
+        IGaugeController gaugeController = IGaugeController(_gaugeController);
+        for (uint i; i < gaugeAddresses.length; ++i) {
+            gaugeController.voteForGaugeWeights(gaugeAddresses[i], userWeights[i]);
         }
     }
 
     /***
-     * @dev  Claim the stHOPE from multi gombocs to Manager, it is the benefit from voting
-     * @param gomboc address of gombocAddress
+     * @dev  Claim the stHOPE from multi Gauges to Manager, it is the benefit from voting
+     * @param Gauge address of gaugeAddress
      * @return Amount amount of stHOPE claimed in the call
      */
-    function claimFromGombocs(address[] calldata gombocAddresses) external {
-        require(gombocAddresses.length < 32, "LightTeamVaultManager: length must less than 32");
-        for (uint i; i < gombocAddresses.length; ++i) {
-            require(gombocAddresses[i] != address(0), "LightTeamVaultManager: wrong gomboc address");
-            uint256 fee = IGombocFeeDistributor(gombocFeeDistributor).claim(gombocAddresses[i], address(this));
+    function claimFromGauges(address[] calldata gaugeAddresses) external {
+        require(gaugeAddresses.length < 32, "LightTeamVaultManager: length must less than 32");
+        for (uint i; i < gaugeAddresses.length; ++i) {
+            require(gaugeAddresses[i] != address(0), "LightTeamVaultManager: wrong gauge address");
+            uint256 fee = IGaugeFeeDistributor(gaugeFeeDistributor).claim(gaugeAddresses[i], address(this));
             stHopeTotalClaimed += fee;
         }  
     }
@@ -240,12 +240,12 @@ contract LightTeamVaultManager is OwnableUpgradeable {
      * @return Amount of LT claimed in the call
      */
     function claimLT() external returns (uint256) {
-        uint256 claimableTokens = ILightGomboc(stHopeGomboc).claimableTokens(address(this));
+        uint256 claimableTokens = ILightGauge(stHopeGauge).claimableTokens(address(this));
         require(claimableTokens > 0, "LightTeamVaultManager: insufficient rewards to claim");
 
-        address _minter = ILightGomboc(stHopeGomboc).minter();
+        address _minter = ILightGauge(stHopeGauge).minter();
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
-        IMinter(_minter).mint(stHopeGomboc);
+        IMinter(_minter).mint(stHopeGauge);
         uint256 claimAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
         ltTotalClaimed += claimAmount;
         return claimAmount;
@@ -293,7 +293,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         if (to == address(0)) to = msg.sender;
         require(amount <= stHopeTotalClaimed - stHopeWithdrew, "LightTeamVaultManager: insufficient rewards to Withraw");
         stHopeWithdrew += amount;
-        TransferHelper.doTransferOut(stHopeGomboc, to, amount);
+        TransferHelper.doTransferOut(stHopeGauge, to, amount);
 
         emit WithdrawStHOPE(to, amount);
     }
