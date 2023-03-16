@@ -1,6 +1,7 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
+import LT from "./build/LT.json";
 
 const ONE = ethers.utils.parseEther("1");
 const ONE_DAY = 86400; 
@@ -11,8 +12,10 @@ const UNLOCK_PER_DAY = LOCKED_AMOUNT.div(208*7);
 
 describe("LightTeamVault", function () {
     async function fixture() {
-        const MockLT = await ethers.getContractFactory("MyToken");
-        const mockLT = await upgrades.deployProxy(MockLT, ["Mock LT", "MockLT", LOCKED_AMOUNT, 18]);
+        const MockLT = await ethers.getContractFactory(LT.abi, LT.bytecode);
+        const mockLT = await MockLT.deploy();
+        await mockLT.deployed();
+        await mockLT.initialize("LT", "LT");
 
         const LightTeamVault = await ethers.getContractFactory("LightTeamVault");
         const lightTeamVault = await upgrades.deployProxy(LightTeamVault, [mockLT.address]);
