@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0
 pragma solidity 0.8.17;
 
-import "./XLT.sol";
-import "./interfaces/IMinter.sol";
-import "./interfaces/IVotingEscrow.sol";
-import "./interfaces/IGaugeController.sol";
-import "./interfaces/IFeeDistributor.sol";
-import "./interfaces/IGaugeFeeDistributor.sol";
+import "../XLT.sol";
+import "../interfaces/IMinter.sol";
+import "../interfaces/IVotingEscrow.sol";
+import "../interfaces/IGaugeController.sol";
+import "../interfaces/IFeeDistributor.sol";
+import "../interfaces/IGaugeFeeDistributor.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -33,7 +33,7 @@ interface ILightGauge {
     function claimableTokens(address addr) external returns (uint256);
 }
 
-contract LightTeamVaultManager is OwnableUpgradeable {
+contract LightTeamVaultManagerV2 is OwnableUpgradeable {
 
     event SetCanWithdrawByAnyone(bool indexed value);
     event WithdrawLTRewards(address indexed to, uint256 amount);
@@ -62,6 +62,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     // if true, withdrawLT(to,amount) can by called by anyone
     // equivalent amount of XLT will be burn from "to"
     bool public canWithdrawByAnyone; 
+
+    uint256 public mockVaule;  // for test upgrade to V2
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -128,8 +130,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
             _votingEscrow.createLock(claimAmount, endTime, 0, 0, bytes(""));
         } else {
             _votingEscrow.increaseAmount(claimAmount, 0, 0, bytes(""));
-            if ((endTime / WEEK) * WEEK > lastEndtime)
-                _votingEscrow.increaseUnlockTime(endTime);
+            // if ((endTime / WEEK) * WEEK > lastEndtime)
+            //     _votingEscrow.increaseUnlockTime(endTime);
         }
 
         lastEndtime = (endTime / WEEK) * WEEK;
@@ -296,5 +298,12 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         TransferHelper.doTransferOut(stHopeGauge, to, amount);
 
         emit WithdrawStHOPE(to, amount);
+    }
+
+    /*
+     * @dev: for test upgrade to V2
+     */ 
+    function setMockVaule(uint256 _mockVaule) external onlyOwner {
+        mockVaule = _mockVaule;
     }
 }

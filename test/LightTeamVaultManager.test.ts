@@ -766,25 +766,4 @@ describe("LightTeamVaultManager", function () {
             expect(await vaultManager.stHopeWithdrew()).to.be.equal(200);
         });
     });
-
-    describe("perform", async () => {
-        it("perform a transfer of LT token", async function () {
-            const { alice, vaultManager, lt } = await loadFixture(fixture);
-            await lt.transfer(vaultManager.address, 100);
-            let [, otherAccount] = await ethers.getSigners();
-            let data = lt.interface.encodeFunctionData("transfer", [otherAccount.address, 1]);
-            await expect(vaultManager.perform([lt.address],[data],[0, 0]))
-            .to.be.revertedWith("target length != values length");
-
-            await expect(vaultManager.perform([lt.address, lt.address],[data],[0, 0]))
-            .to.be.revertedWith("target length != data length");
-
-            await expect(vaultManager.connect(alice).perform([lt.address, lt.address],[data],[0, 0]))
-            .to.be.revertedWith("Ownable: caller is not the owner");
-
-            await vaultManager.perform([lt.address], [data], [0]);
-            expect(await lt.balanceOf(otherAccount.address)).to.be.equal(1);
-
-        });
-    });
 });

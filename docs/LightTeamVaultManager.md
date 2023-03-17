@@ -85,8 +85,3 @@ withdraw LT comes from rewarding, if "to" is address(0), it will be withdraw to 
 function withdrawStHOPE(address to, uint amount) external onlyOwner
 ```
 withdraw stHOPE, if "to" is address(0), it will be withdraw to msg.sender
-
-```solidity
-function perform(address[] momory to, bytes[] calldata payload, uint[] momory values) external payable onlyOwner returns (bytes[] memory)
-```
-Perform with call
