@@ -14,10 +14,16 @@ see below for more details
 
 ## Function
 ```solidity
-function claimUnlockedLTAndLockForVeLT() external returns (uint256)
+function claimUnlockedLTAndLockForVeLT() external onlyOwner returns (uint256)
 ```
 Claim unlocked LT token from LightTeamVault, then lock them to VoteEscrow for 4 years ,
-and record mintable XLT amount, it can be called every 24h by anyone
+and record mintable XLT amount, it can only be called by owner every 24h
+
+```solidity
+function claimUnlockedLT() external onlyOwner returns (uint256)
+```
+Claim unlocked LT token from LightTeamVault to Manager ,
+and record mintable XLT amount, it can only be called by owner every 24h
 
 ```solidity
 function setCanWithdrawByAnyone(bool _canWithdrawByAnyone) external onlyOwner

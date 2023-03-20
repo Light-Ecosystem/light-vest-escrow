@@ -117,6 +117,12 @@ describe("LightTeamVaultManager", function () {
     }
 
     describe("claimUnlockedLTAndLockForVeLT", async () => {
+        it("should be revert if caller is not owner",async () => {
+            const { alice, vaultManager } = await loadFixture(fixture); 
+            await expect(vaultManager.connect(alice).claimUnlockedLTAndLockForVeLT())
+            .to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
         it("after the first claim, the locked amount and end time should be right", async function () {
             const { vaultManager, veLT } = await loadFixture(fixture); 
             const claimTime = (await time.latest()) + ONE_DAY;
@@ -174,6 +180,34 @@ describe("LightTeamVaultManager", function () {
             lockedAmount = (await veLT.locked(vaultManager.address)).amount;
             currentMintableXlt = await vaultManager.mintableXlt();
             expect(lockedAmount).to.equal(currentMintableXlt);
+        });
+    });
+
+    describe("claimUnlockedLT", async () => {
+        it("should be revert if caller is not owner",async () => {
+            const { alice, vaultManager } = await loadFixture(fixture); 
+            await expect(vaultManager.connect(alice).claimUnlockedLT())
+            .to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("after the claim, the balance should be right", async function () {
+            const { vaultManager, lt } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+            await vaultManager.claimUnlockedLT();
+    
+            let balance = await lt.balanceOf(vaultManager.address);
+            expect(balance).to.be.equal(UNLOCK_PER_DAY);
+        });
+
+        it("after the claim, the mintableXlt should be right", async function () {
+            const { vaultManager, lt } = await loadFixture(fixture); 
+            const claimTime = (await time.latest()) + ONE_DAY;
+            await time.increaseTo(claimTime);
+            await vaultManager.claimUnlockedLT();
+    
+            let mintableXlt = await vaultManager.mintableXlt();
+            expect(mintableXlt).to.be.equal(UNLOCK_PER_DAY);
         });
     });
 

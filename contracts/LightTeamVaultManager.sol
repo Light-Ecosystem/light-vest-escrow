@@ -108,10 +108,10 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     
     /***
      * @dev Claim unlocked LT token from LightTeamVault, then lock them to VoteEscrow for 4 years ,
-     *      and record mintable XLT amount, it can be called every 24h by anyone
+     *      and record mintable XLT amount, it can only be called by owner every 24h 
      * @return amount amount of locked
      */
-    function claimUnlockedLTAndLockForVeLT() external returns (uint256) {
+    function claimUnlockedLTAndLockForVeLT() external onlyOwner returns (uint256) {
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
         ILightTeamVault(lightTeamVault).claimTo(address(this));
         uint256 claimAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
@@ -134,6 +134,21 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
         lastEndtime = (endTime / WEEK) * WEEK;
         
+        return claimAmount;
+    }
+
+    /***
+     * @dev Claim unlocked LT token from LightTeamVault to Manager,
+     *      and record mintable XLT amount, it can only be called by owner every 24h  
+     * @return amount amount of claimed
+     */
+    function claimUnlockedLT() external onlyOwner returns (uint256) {
+        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
+        ILightTeamVault(lightTeamVault).claimTo(address(this));
+        uint256 claimAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
+        require(claimAmount > 0, "LightTeamVaultManager: insufficient balance to lock");
+        mintableXlt += claimAmount; 
+
         return claimAmount;
     }
 
@@ -166,7 +181,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     }
 
     /***
-     * @dev When the lock expired, after claimed, it can be lock again
+     * @dev after claimUnlockedLT or withdrawLTWhenExpired, lock LT to votingEscrow
      * @param amount amount of LT to lock 
      * @param unlockTime end time to unlock , if the lock existed, unlockTime must be 0
      */
