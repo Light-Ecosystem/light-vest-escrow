@@ -130,7 +130,7 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.claimUnlockedLTAndLockForVeLT();
     
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
-            expect(lockedAmount).to.equal(UNLOCK_PER_DAY);
+            expect(lockedAmount).to.equal(UNLOCK_PER_DAY.mul(2));
 
             let end = (await veLT.locked(vaultManager.address)).end;
             let exptetEnd = ethers.BigNumber.from(((await time.latest()) + MAXTIME)).div(WEEK).mul(WEEK);
@@ -146,7 +146,7 @@ describe("LightTeamVaultManager", function () {
             await time.increase(WEEK);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
-            expect(lockedAmount).to.be.equal(UNLOCK_PER_DAY.mul(8));
+            expect(lockedAmount).to.be.equal(UNLOCK_PER_DAY.mul(9));
             let end = (await veLT.locked(vaultManager.address)).end;
             let timeRounded = ethers.BigNumber.from((await time.latest()+MAXTIME)).div(WEEK).mul(WEEK);
             expect(end).to.be.equal(timeRounded);
@@ -197,7 +197,7 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.claimUnlockedLT();
     
             let balance = await lt.balanceOf(vaultManager.address);
-            expect(balance).to.be.equal(UNLOCK_PER_DAY);
+            expect(balance).to.be.equal(UNLOCK_PER_DAY.mul(2));
         });
 
         it("after the claim, the mintableXlt should be right", async function () {
@@ -207,7 +207,7 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.claimUnlockedLT();
     
             let mintableXlt = await vaultManager.mintableXlt();
-            expect(mintableXlt).to.be.equal(UNLOCK_PER_DAY);
+            expect(mintableXlt).to.be.equal(UNLOCK_PER_DAY.mul(2));
         });
     });
 

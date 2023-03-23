@@ -63,22 +63,20 @@ describe("LightTeamVault", function () {
             await time.increaseTo(claimTime);
 
             await lightTeamVault.claimTo(alice.address);
-            expect(await mockLT.balanceOf(alice.address)).to.equal(UNLOCK_PER_DAY);
+            expect(await mockLT.balanceOf(alice.address)).to.equal(UNLOCK_PER_DAY.mul(2));
 
             await time.increase(ONE_DAY);
             await lightTeamVault.claimTo(alice.address);
-            expect(await lightTeamVault.claimedAmount()).to.equal(UNLOCK_PER_DAY.mul(2));
+            expect(await lightTeamVault.claimedAmount()).to.equal(UNLOCK_PER_DAY.mul(3));
             expect(await lightTeamVault.lastClaimedTime()).to.equal(await time.latest());
         });
     });
 
     describe("getTotalUnlockedAmount", async () => {
-        it("within a day , the unlocked amount should zero", async function () {
+        it("within a day , the unlocked amount should be right", async function () {
             const { lightTeamVault } = await loadFixture(fixture); 
-            const startTime = await lightTeamVault.startTime();
-            await time.increaseTo(startTime.add(ONE_DAY).sub(1));
 
-            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(0);
+            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY);
         });
 
         it("the unlocked amount should right", async function () {
@@ -86,10 +84,10 @@ describe("LightTeamVault", function () {
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             
-            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY);
+            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY.mul(2));
 
             await time.increase(ONE_DAY);
-            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY.mul(2));
+            expect(await lightTeamVault.getTotalUnlockedAmount()).to.equal(UNLOCK_PER_DAY.mul(3));
         });
 
         it("208 weeks later, the unlocked amount should right", async function () {
@@ -108,7 +106,7 @@ describe("LightTeamVault", function () {
             await time.increaseTo(claimTime);
 
             // let claimedAmount = await lightTeamVault.claimedAmount();
-            expect(await lightTeamVault.getClaimableAmount()).to.equal(UNLOCK_PER_DAY);
+            expect(await lightTeamVault.getClaimableAmount()).to.equal(UNLOCK_PER_DAY.mul(2));
         });
 
         it("after claim, the claimedAmount amount should be right", async function () {
@@ -118,12 +116,12 @@ describe("LightTeamVault", function () {
 
             await lightTeamVault.claimTo(owner.address);
             let claimedAmount = await lightTeamVault.claimedAmount();
-            expect(claimedAmount).to.equal(UNLOCK_PER_DAY);
+            expect(claimedAmount).to.equal(UNLOCK_PER_DAY.mul(2));
 
             await time.increase(ONE_DAY);
             await lightTeamVault.claimTo(owner.address);
             claimedAmount = await lightTeamVault.claimedAmount();
-            expect(claimedAmount).to.equal(UNLOCK_PER_DAY.mul(2));
+            expect(claimedAmount).to.equal(UNLOCK_PER_DAY.mul(3));
         });
     });
 });

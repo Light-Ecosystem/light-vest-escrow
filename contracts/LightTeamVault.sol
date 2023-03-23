@@ -30,7 +30,7 @@ contract LightTeamVault is OwnableUpgradeable {
         require(_token != address(0), "LightTeamVault: invalid token"); 
         __Ownable_init();
         token = _token;
-        startTime = block.timestamp - block.timestamp % 1 days;
+        startTime = block.timestamp - 1 days;
     }
 
     /*
