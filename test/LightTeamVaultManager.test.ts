@@ -16,10 +16,10 @@ import MockSmartWalletWhitelist from "./build/SmartWalletWhitelist.json";
 import Mock_Gauge from "./build/MockGauge.json";
 
 const ONE = ethers.utils.parseEther("1");
-const ONE_DAY = 86400; 
-const WEEK = 7 * ONE_DAY; 
+const ONE_DAY = 86400;
+const WEEK = 7 * ONE_DAY;
 const MAXTIME = 208 * WEEK;
-const UNLOCK_PER_DAY = ONE.mul(300000000000).div(208*7);
+const UNLOCK_PER_DAY = ONE.mul(300000000000).div(208 * 7);
 
 describe("LightTeamVaultManager", function () {
     async function fixture() {
@@ -40,7 +40,7 @@ describe("LightTeamVaultManager", function () {
         const Permit2Contract = await ethers.getContractFactory(MockPermit2.abi, MockPermit2.bytecode);
         const SmartWalletWhitelist = await ethers.getContractFactory(MockSmartWalletWhitelist.abi, MockSmartWalletWhitelist.bytecode);
         const VaultManager = await ethers.getContractFactory("LightTeamVaultManager");
-        
+
         // deploye permit2
         const permit2 = await Permit2Contract.deploy();
 
@@ -100,7 +100,7 @@ describe("LightTeamVaultManager", function () {
         await lightTeamVault.deployed();
         const LOCKED_AMOUNT = ONE.mul(300000000000);
         lt.transfer(lightTeamVault.address, LOCKED_AMOUNT);
-        
+
         // deploye Manager
         const vaultManager = await upgrades.deployProxy(VaultManager, [owner.address, lightTeamVault.address, feeDistributor.address, gaugeFeeDistributor.address, stakingHope.address]);
         await vaultManager.deployed();
@@ -111,24 +111,26 @@ describe("LightTeamVaultManager", function () {
         const smartWalletWhitelist = await SmartWalletWhitelist.deploy();
         await veLT.setSmartWalletChecker(smartWalletWhitelist.address);
         await smartWalletWhitelist.approveWallet(vaultManager.address);
-        
-        return { owner, alice, vaultManager, lightTeamVault,  veLT, lt, hopeToken, stakingHope, 
-            gaugeController, permit2, gaugeFeeDistributor, feeDistributor, minter }
+
+        return {
+            owner, alice, vaultManager, lightTeamVault, veLT, lt, hopeToken, stakingHope,
+            gaugeController, permit2, gaugeFeeDistributor, feeDistributor, minter
+        }
     }
 
     describe("claimUnlockedLTAndLockForVeLT", async () => {
-        it("should be revert if caller is not owner",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+        it("should be revert if caller is not owner", async () => {
+            const { alice, vaultManager } = await loadFixture(fixture);
             await expect(vaultManager.connect(alice).claimUnlockedLTAndLockForVeLT())
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("after the first claim, the locked amount and end time should be right", async function () {
-            const { vaultManager, veLT } = await loadFixture(fixture); 
+            const { vaultManager, veLT } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
             expect(lockedAmount).to.equal(UNLOCK_PER_DAY.mul(2));
 
@@ -138,39 +140,39 @@ describe("LightTeamVaultManager", function () {
         });
 
         it("after the second or third claim, the locked amount and end time should be right", async function () {
-            const { vaultManager, veLT } = await loadFixture(fixture); 
+            const { vaultManager, veLT } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             await time.increase(WEEK);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
             expect(lockedAmount).to.be.equal(UNLOCK_PER_DAY.mul(9));
             let end = (await veLT.locked(vaultManager.address)).end;
-            let timeRounded = ethers.BigNumber.from((await time.latest()+MAXTIME)).div(WEEK).mul(WEEK);
+            let timeRounded = ethers.BigNumber.from((await time.latest() + MAXTIME)).div(WEEK).mul(WEEK);
             expect(end).to.be.equal(timeRounded);
         });
 
         it("four years later, after claim, the locked amount and end time should be right", async function () {
-            const { vaultManager, veLT } = await loadFixture(fixture); 
+            const { vaultManager, veLT } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
-            expect(lockedAmount).to.be.equal(UNLOCK_PER_DAY.mul(208*7));
+            expect(lockedAmount).to.be.equal(UNLOCK_PER_DAY.mul(208 * 7));
             let end = (await veLT.locked(vaultManager.address)).end;
-            let timeRounded = ethers.BigNumber.from((await time.latest()+MAXTIME)).div(WEEK).mul(WEEK);
+            let timeRounded = ethers.BigNumber.from((await time.latest() + MAXTIME)).div(WEEK).mul(WEEK);
             expect(end).to.be.equal(timeRounded);
         });
 
         it("after claim, the mintableXlt should be right", async function () {
-            const { vaultManager, veLT } = await loadFixture(fixture); 
+            const { vaultManager, veLT } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
             let currentMintableXlt = await vaultManager.mintableXlt();
             expect(lockedAmount).to.equal(currentMintableXlt);
@@ -184,49 +186,49 @@ describe("LightTeamVaultManager", function () {
     });
 
     describe("claimUnlockedLT", async () => {
-        it("should be revert if caller is not owner",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+        it("should be revert if caller is not owner", async () => {
+            const { alice, vaultManager } = await loadFixture(fixture);
             await expect(vaultManager.connect(alice).claimUnlockedLT())
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("after the claim, the balance should be right", async function () {
-            const { vaultManager, lt } = await loadFixture(fixture); 
+            const { vaultManager, lt } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLT();
-    
+
             let balance = await lt.balanceOf(vaultManager.address);
             expect(balance).to.be.equal(UNLOCK_PER_DAY.mul(2));
         });
 
         it("after the claim, the mintableXlt should be right", async function () {
-            const { vaultManager, lt } = await loadFixture(fixture); 
+            const { vaultManager, lt } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLT();
-    
+
             let mintableXlt = await vaultManager.mintableXlt();
             expect(mintableXlt).to.be.equal(UNLOCK_PER_DAY.mul(2));
         });
     });
 
-    describe("setCanWithdrawByAnyone",async () => {
-        it("should be revert if caller is not owner",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+    describe("setCanWithdrawByAnyone", async () => {
+        it("should be revert if caller is not owner", async () => {
+            const { alice, vaultManager } = await loadFixture(fixture);
             await expect(vaultManager.connect(alice).setCanWithdrawByAnyone(true))
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
-        it("should be revert when set the same value",async () => {
-            const { vaultManager } = await loadFixture(fixture); 
+        it("should be revert when set the same value", async () => {
+            const { vaultManager } = await loadFixture(fixture);
             let value = await vaultManager.canWithdrawByAnyone();
             await expect(vaultManager.setCanWithdrawByAnyone(value))
                 .to.be.revertedWith("LightTeamVaultManager: wrong value to set");
         });
 
-        it("after set, the value should be set right",async () => {
-            const { vaultManager } = await loadFixture(fixture); 
+        it("after set, the value should be set right", async () => {
+            const { vaultManager } = await loadFixture(fixture);
             let value = await vaultManager.canWithdrawByAnyone();
             await vaultManager.setCanWithdrawByAnyone(!value);
             expect(await vaultManager.canWithdrawByAnyone()).to.be.equal(!value);
@@ -235,21 +237,21 @@ describe("LightTeamVaultManager", function () {
     });
 
     describe("mintXLT", async () => {
-        it("should be revert if caller is not owner",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+        it("should be revert if caller is not owner", async () => {
+            const { alice, vaultManager } = await loadFixture(fixture);
             let mintableAmount = await vaultManager.mintableXlt();
             await expect(vaultManager.connect(alice).mintXLT(alice.address, mintableAmount))
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
-        it("should be revert if mintable amount is insufficient",async () => {
+        it("should be revert if mintable amount is insufficient", async () => {
             const { owner, vaultManager } = await loadFixture(fixture);
             let mintableAmount = await vaultManager.mintableXlt();
             await expect(vaultManager.mintXLT(owner.address, mintableAmount.add(1)))
-            .to.be.revertedWith("LightTeamVaultManager: insufficient mintable amount");
+                .to.be.revertedWith("LightTeamVaultManager: insufficient mintable amount");
         });
 
-        it("after minted, the mintableXlt should be right",async () => {
+        it("after minted, the mintableXlt should be right", async () => {
             const { owner, vaultManager } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
@@ -260,7 +262,7 @@ describe("LightTeamVaultManager", function () {
             expect(await vaultManager.mintableXlt()).to.be.equal(1);
         });
 
-        it("after minted, the balance of 'to' should be right",async () => {
+        it("after minted, the balance of 'to' should be right", async () => {
             const { owner, vaultManager } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
@@ -274,44 +276,9 @@ describe("LightTeamVaultManager", function () {
         });
     });
 
-    describe("burnXLT", async () => {
-        it("should be revert if caller is not owner",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture); 
-            await expect(vaultManager.connect(alice).burnXLT(alice.address, 1))
-            .to.be.revertedWith("Ownable: caller is not the owner");
-        });
-
-        it("should be revert if the amount to be burn is insufficient",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture);
-            const claimTime = (await time.latest()) + ONE_DAY;
-            await time.increaseTo(claimTime);
-            await vaultManager.claimUnlockedLTAndLockForVeLT();
-            let mintableAmount = await vaultManager.mintableXlt();
-            await vaultManager.mintXLT(alice.address, mintableAmount);
-
-            await expect(vaultManager.burnXLT(alice.address, mintableAmount.add(1)))
-            .to.be.revertedWith("LightTeamVaultManager: insufficient XLT to burn");
-        });
-
-        it("after burned, the balance of 'to' should be right",async () => {
-            const { alice, vaultManager } = await loadFixture(fixture);
-            const claimTime = (await time.latest()) + ONE_DAY;
-            await time.increaseTo(claimTime);
-            await vaultManager.claimUnlockedLTAndLockForVeLT();
-            let mintableAmount = await vaultManager.mintableXlt();
-            await vaultManager.mintXLT(alice.address, mintableAmount);
-
-            const XLT = await vaultManager.xlt();
-            const xlt = await ethers.getContractAt("XLT", XLT);
-            let balanceOf = await xlt.balanceOf(alice.address);
-            await vaultManager.burnXLT(alice.address, balanceOf.sub(1));
-            expect(await xlt.balanceOf(alice.address)).to.be.equal(1);
-        });
-    });
-
-    describe("withdrawLTWhenExpired",async () => {
+    describe("withdrawLTWhenExpired", async () => {
         it("withdraw LT When expired, the amount withdrew should be right", async function () {
-            const { vaultManager, lt } = await loadFixture(fixture); 
+            const { vaultManager, lt } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -322,9 +289,9 @@ describe("LightTeamVaultManager", function () {
         });
     });
 
-    describe("lockLT",async () => {
+    describe("lockLT", async () => {
         it("withdraw LT When expired, then lock again, should be revert if caller is not owner", async function () {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+            const { alice, vaultManager } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -332,11 +299,11 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.withdrawLTWhenExpired();
 
             await expect(vaultManager.connect(alice).lockLT(1, MAXTIME))
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("withdraw LT When expired, then lock again, after the first lock, the lock amount and end time should be right", async function () {
-            const { vaultManager, veLT, lt } = await loadFixture(fixture); 
+            const { vaultManager, veLT, lt } = await loadFixture(fixture);
             const claimTime = await time.latest() + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -344,7 +311,7 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.withdrawLTWhenExpired();
 
             let endTime = await time.latest() + MAXTIME;
-            await vaultManager.lockLT(100, endTime);    
+            await vaultManager.lockLT(100, endTime);
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
             expect(lockedAmount).to.equal(100);
 
@@ -354,7 +321,7 @@ describe("LightTeamVaultManager", function () {
         });
 
         it("withdraw LT When expired, then lock again, after the seconde or third lock, the lock amount and end time should be right", async function () {
-            const { vaultManager, veLT, lt } = await loadFixture(fixture); 
+            const { vaultManager, veLT, lt } = await loadFixture(fixture);
             const claimTime = await time.latest() + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -362,9 +329,9 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.withdrawLTWhenExpired();
 
             let endTime = await time.latest() + MAXTIME;
-            await vaultManager.lockLT(100, endTime); 
+            await vaultManager.lockLT(100, endTime);
             await vaultManager.lockLT(100, 0);
-        
+
             let lockedAmount = (await veLT.locked(vaultManager.address)).amount;
             expect(lockedAmount).to.equal(200);
 
@@ -374,7 +341,7 @@ describe("LightTeamVaultManager", function () {
         });
 
         it("withdraw LT When expired, then lock again, if not the first lock, should revert if the end time is not zero", async function () {
-            const { vaultManager } = await loadFixture(fixture); 
+            const { vaultManager } = await loadFixture(fixture);
             const claimTime = await time.latest() + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -382,16 +349,16 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.withdrawLTWhenExpired();
 
             let endTime = await time.latest() + MAXTIME;
-            await vaultManager.lockLT(100, endTime); 
+            await vaultManager.lockLT(100, endTime);
 
             await expect(vaultManager.lockLT(100, endTime))
-            .to.be.revertedWith("LightTeamVaultManager: the lock existed, the unlockTime should be zero");
+                .to.be.revertedWith("LightTeamVaultManager: the lock existed, the unlockTime should be zero");
         });
     });
 
-    describe("increaseUnlockTime",async () => {
+    describe("increaseUnlockTime", async () => {
         it("should be revert if caller is not owner", async function () {
-            const { alice, vaultManager, veLT } = await loadFixture(fixture); 
+            const { alice, vaultManager, veLT } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -400,36 +367,36 @@ describe("LightTeamVaultManager", function () {
 
             let lockTime = await time.latest() + MAXTIME;
             await vaultManager.lockLT(100, lockTime);
-            await expect(vaultManager.connect(alice).increaseUnlockTime(lockTime + 2*WEEK))
-            .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(vaultManager.connect(alice).increaseUnlockTime(lockTime + 2 * WEEK))
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("after increase unlock time, the end time should be right", async function () {
-            const { vaultManager, veLT } = await loadFixture(fixture); 
+            const { vaultManager, veLT } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
             await time.increase(MAXTIME);
             await vaultManager.withdrawLTWhenExpired();
 
-            await vaultManager.lockLT(100, (await time.latest()) + 2*WEEK);
+            await vaultManager.lockLT(100, (await time.latest()) + 2 * WEEK);
             let endTimeBefore = (await veLT.locked(vaultManager.address)).end;
-            await vaultManager.increaseUnlockTime(endTimeBefore.add(2*WEEK));
+            await vaultManager.increaseUnlockTime(endTimeBefore.add(2 * WEEK));
             let endTimeNew = (await veLT.locked(vaultManager.address)).end;
-            expect(endTimeNew).to.be.equal(endTimeBefore.add(2*WEEK));
+            expect(endTimeNew).to.be.equal(endTimeBefore.add(2 * WEEK));
         });
     });
 
-    describe("voteForGaugesWeights",async () => {
+    describe("voteForGaugesWeights", async () => {
         it("should revert if the lenght does not match", async function () {
             const { vaultManager, stakingHope } = await loadFixture(fixture);
             await expect(vaultManager.voteForGaugesWeights([stakingHope.address], [1, 2]))
-            .to.be.revertedWith("LightTeamVaultManager: unmatched length");
-            
+                .to.be.revertedWith("LightTeamVaultManager: unmatched length");
+
         });
 
         it("voteForGaugeWeights with two type and two gauge", async function () {
-            const { vaultManager, veLT, stakingHope, gaugeController} = await loadFixture(fixture);
+            const { vaultManager, veLT, stakingHope, gaugeController } = await loadFixture(fixture);
 
             //add gauge to gaugeController
             let name = "Staking HOPE Type";
@@ -445,16 +412,16 @@ describe("LightTeamVaultManager", function () {
 
             await gaugeController.addGauge(stakingHope.address, typeId, 0);
             await gaugeController.addGauge(mockGauge.address, typeId1, 0);
-            
+
             // lock lt from manager
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-        
+
             //voting stakingHope gauge
             let userWeight = 5000;
             await vaultManager.voteForGaugesWeights([stakingHope.address, mockGauge.address], [userWeight, userWeight]);
-    
+
             let blcoTime = await time.latest();
             let lockEnd = await veLT.lockedEnd(vaultManager.address);
             let nextTime = blcoTime + WEEK;
@@ -468,14 +435,14 @@ describe("LightTeamVaultManager", function () {
             expect(await gaugeController.getWeightsSumPreType(typeId)).to.equal(Wg);
             expect(await gaugeController.getWeightsSumPreType(typeId1)).to.equal(Wg);
             expect(await gaugeController.getTotalWeight()).to.equal(Wg.mul(weight).mul(2));
-        }); 
+        });
     });
 
     describe("claimFromGauges", async () => {
         it("should revert if the some Gauge address is zero", async function () {
             const { vaultManager, stakingHope } = await loadFixture(fixture);
             await expect(vaultManager.claimFromGauges([stakingHope.address, ethers.constants.AddressZero]))
-            .to.be.revertedWith("LightTeamVaultManager: wrong gauge address");
+                .to.be.revertedWith("LightTeamVaultManager: wrong gauge address");
         });
 
         it("after claim, the balance and stHopeTotalClaimed should be right", async function () {
@@ -498,12 +465,12 @@ describe("LightTeamVaultManager", function () {
 
             await gaugeController.addGauge(stakingHope.address, typeId, weight);
             await gaugeController.addGauge(mockGauge.address, typeId1, weight);
-            
+
             //voting stakingHope gauge
             await vaultManager.voteForGaugesWeights([stakingHope.address, mockGauge.address], [5000, 5000]);
             await time.increase(WEEK);
             await gaugeFeeDistributor.checkpointToken();
-    
+
             ///transfer hope fee and checkpoint
             let amount = ethers.utils.parseEther("1000");
             await hopeToken.transfer(gaugeFeeDistributor.address, amount);
@@ -525,28 +492,28 @@ describe("LightTeamVaultManager", function () {
     describe("claimFromFeeDistributor", async () => {
         it("after claim, the balance and stHopeTotalClaimed should be right", async function () {
             const { vaultManager, hopeToken, stakingHope, feeDistributor } = await loadFixture(fixture);
-            
+
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
             let lastTokenTime = await feeDistributor.lastTokenTime();
-    
+
             //transfer hope to feeDistributor
             let amount = ethers.utils.parseEther("10000");
             await hopeToken.transfer(feeDistributor.address, amount);
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
             await feeDistributor.checkpointTotalSupply();
             await feeDistributor.toggleAllowCheckpointToken();
-    
+
             let tt = lastTokenTime.toNumber() - lastTokenTime.toNumber() % WEEK;
             let preWeekBalance = await feeDistributor.tokensPerWeek(tt);
             let preWeekBalance1 = await feeDistributor.tokensPerWeek(tt + WEEK);
-    
+
             /// claim  fee
             await time.increase(WEEK);
             await vaultManager.claimFromFeeDistributor();
@@ -562,7 +529,7 @@ describe("LightTeamVaultManager", function () {
             //set minter for LT
             await lt.setMinter(minter.address);
             await expect(vaultManager.claimLT())
-            .to.be.revertedWith("LightTeamVaultManager: insufficient rewards to claim");
+                .to.be.revertedWith("LightTeamVaultManager: insufficient rewards to claim");
         });
 
         it("claim LT from stakingHOPE", async function () {
@@ -579,26 +546,26 @@ describe("LightTeamVaultManager", function () {
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
-    
+
             //transfer hope to feeDistributor
             let amount = ethers.utils.parseEther("10000");
             await hopeToken.transfer(feeDistributor.address, amount);
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
             await feeDistributor.checkpointTotalSupply();
             await feeDistributor.toggleAllowCheckpointToken();
-    
+
             // claim fee
             await time.increase(WEEK);
             await vaultManager.claimFromFeeDistributor();
-            
+
             // here, we hold stHOPE now
             await time.increase(WEEK);
-            
+
             await vaultManager.claimLT();
             let mintedAmount = await minter.minted(vaultManager.address, stakingHope.address);
             expect(mintedAmount).to.be.equal(await lt.balanceOf(vaultManager.address));
@@ -608,17 +575,17 @@ describe("LightTeamVaultManager", function () {
 
     describe("withdrawLTRewards", async () => {
         it("should be revert if caller is not owner", async function () {
-            const { alice, vaultManager } = await loadFixture(fixture); 
-            
+            const { alice, vaultManager } = await loadFixture(fixture);
+
             await expect(vaultManager.connect(alice).withdrawLTRewards(alice.address, 100))
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("should be revert if claimabel amount is insufficient", async function () {
-            const { owner, vaultManager } = await loadFixture(fixture);  
+            const { owner, vaultManager } = await loadFixture(fixture);
 
             await expect(vaultManager.withdrawLTRewards(owner.address, 100))
-            .to.be.revertedWith("LightTeamVaultManager: insufficient rewards to Withraw");
+                .to.be.revertedWith("LightTeamVaultManager: insufficient rewards to Withraw");
         });
 
         it("withraw LT reward to 'to', and check 'ltRewardsWithdrew'", async function () {
@@ -635,26 +602,26 @@ describe("LightTeamVaultManager", function () {
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
-    
+
             //transfer hope to feeDistributor
             let amount = ethers.utils.parseEther("10000");
             await hopeToken.transfer(feeDistributor.address, amount);
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
             await feeDistributor.checkpointTotalSupply();
             await feeDistributor.toggleAllowCheckpointToken();
-    
+
             // claim fee
             await time.increase(WEEK);
             await vaultManager.claimFromFeeDistributor();
-            
+
             // here, we hold stHOPE now
             await time.increase(WEEK);
-            
+
             await vaultManager.claimLT();
 
             // if 'to' is address(0), withrew to msg.sender
@@ -670,7 +637,7 @@ describe("LightTeamVaultManager", function () {
 
     describe("withdrawLT", async () => {
         it("should be revert if caller is not owner", async function () {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+            const { alice, vaultManager } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -678,11 +645,11 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.withdrawLTWhenExpired();
 
             await expect(vaultManager.connect(alice).withdrawLT(alice.address, 100))
-            .to.be.revertedWith("LightTeamVaultManager: caller is not the owner");
+                .to.be.revertedWith("LightTeamVaultManager: caller is not the owner");
         });
 
         it("should be revert if 'to' does not hoding certain XLT", async function () {
-            const { alice, vaultManager } = await loadFixture(fixture); 
+            const { alice, vaultManager } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -690,11 +657,11 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.withdrawLTWhenExpired();
 
             await expect(vaultManager.withdrawLT(alice.address, 100))
-            .to.be.revertedWith("LightTeamVaultManager: insufficient XLT to burn");
+                .to.be.revertedWith("LightTeamVaultManager: insufficient XLT to burn");
         });
 
         it("when 'canWithdrawByAnyone' is true, if the caller is not owner, 'to' must be msg.sender", async function () {
-            const { owner, alice, vaultManager } = await loadFixture(fixture); 
+            const { owner, alice, vaultManager } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -704,11 +671,11 @@ describe("LightTeamVaultManager", function () {
             await vaultManager.setCanWithdrawByAnyone(true);
             await vaultManager.mintXLT(alice.address, 100);
             await expect(vaultManager.connect(alice).withdrawLT(owner.address, 100))
-            .to.be.revertedWith("LightTeamVaultManager: invalid call");
+                .to.be.revertedWith("LightTeamVaultManager: invalid call");
         });
 
         it("withraw LT to 'to', and check 'ltWithdrew'", async function () {
-            const { owner, alice, vaultManager, lt } = await loadFixture(fixture); 
+            const { owner, alice, vaultManager, lt } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -729,7 +696,7 @@ describe("LightTeamVaultManager", function () {
         });
 
         it("when 'canWithdrawByAnyone' is true, anyone can withdraw LT by burning certain XLT", async function () {
-            const { alice, vaultManager, lt } = await loadFixture(fixture); 
+            const { alice, vaultManager, lt } = await loadFixture(fixture);
             const claimTime = (await time.latest()) + MAXTIME;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
@@ -746,23 +713,23 @@ describe("LightTeamVaultManager", function () {
     describe("withdrawStHOPE", async () => {
         async function prepareStHope() {
             const { owner, alice, vaultManager, hopeToken, feeDistributor, stakingHope } = await loadFixture(fixture);
-            
+
             const claimTime = (await time.latest()) + ONE_DAY;
             await time.increaseTo(claimTime);
             await vaultManager.claimUnlockedLTAndLockForVeLT();
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
-    
+
             //transfer hope to feeDistributor
             let amount = ethers.utils.parseEther("10000");
             await hopeToken.transfer(feeDistributor.address, amount);
-    
+
             await time.increase(WEEK);
             await feeDistributor.checkpointToken();
             await feeDistributor.checkpointTotalSupply();
             await feeDistributor.toggleAllowCheckpointToken();
-    
+
             /// claim  fee
             await time.increase(WEEK);
             await vaultManager.claimFromFeeDistributor();
@@ -774,7 +741,7 @@ describe("LightTeamVaultManager", function () {
             // console.log(await stakingHope.balanceOf(vaultManager.address));
 
             await expect(vaultManager.connect(alice).withdrawStHOPE(alice.address, 100))
-            .to.be.revertedWith("Ownable: caller is not the owner");
+                .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("should be revert if amount exceed withdrawable", async function () {
@@ -784,7 +751,7 @@ describe("LightTeamVaultManager", function () {
             let canWithdraw = stHopeTotalClaimed.sub(stHopeWithdrew);
 
             await expect(vaultManager.withdrawStHOPE(owner.address, canWithdraw.add(1)))
-            .to.be.revertedWith("LightTeamVaultManager: insufficient rewards to Withraw");
+                .to.be.revertedWith("LightTeamVaultManager: insufficient rewards to Withraw");
         });
 
         it("withraw stHOPE to 'to', and check 'stHopeWithdrew'", async function () {

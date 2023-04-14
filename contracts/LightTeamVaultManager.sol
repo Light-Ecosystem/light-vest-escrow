@@ -165,16 +165,6 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     }
 
     /***
-     * @dev Burn amount XLT from "from"
-     * @param from Address of the holder
-     * @param amount amount of XLT
-     */
-    function burnXLT(address from, uint amount) external onlyOwner {
-        require(IERC20(xlt).balanceOf(from) >= amount, "LightTeamVaultManager: insufficient XLT to burn");
-        IXlt(xlt).burn(from, amount);
-    }
-
-    /***
      * @dev When locked LT expired, withdraw it form VoteEscrow to Manager. can be called by anyone
      */
     function withdrawLTWhenExpired() external {
