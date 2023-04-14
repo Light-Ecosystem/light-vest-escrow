@@ -10,10 +10,11 @@ import "./interfaces/IGaugeFeeDistributor.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { TransferHelper } from "light-lib/contracts/TransferHelper.sol";
+import {TransferHelper} from "light-lib/contracts/TransferHelper.sol";
 
 interface IXlt {
     function mint(address account, uint256 amount) external;
+
     function burn(address account, uint256 amount) external;
 }
 
@@ -27,14 +28,17 @@ interface IExtendVotingEscrow is IVotingEscrow {
 
 interface ILightGauge {
     function minter() external returns (address);
+
     function ltToken() external returns (address);
+
     function controller() external returns (address);
+
     function votingEscrow() external returns (address);
+
     function claimableTokens(address addr) external returns (uint256);
 }
 
 contract LightTeamVaultManager is OwnableUpgradeable {
-
     event SetCanWithdrawByAnyone(bool indexed value);
     event WithdrawLTRewards(address indexed to, uint256 amount);
     event WithdrawLT(address indexed operator, address indexed to, uint256 amount);
@@ -43,36 +47,34 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     address public lightTeamVault;
     address public feeDistributor;
     address public gaugeFeeDistributor;
-    address public stHopeGauge; // this is both a Gauge and a token 
+    address public stHopeGauge; // this is both a Gauge and a token
     address public votingEscrow;
 
     address public xlt;
     address public token; // LT
 
     uint256 public mintableXlt; // amount of XLT can be minted by Manager
-    uint256 public stHopeTotalClaimed;  // total claimed amount of stHOPE rewards 
-    uint256 public stHopeWithdrew;   // the stHOPE had withrew
-    uint256 public ltTotalClaimed;  // total claimed amount of LT rewards
+    uint256 public stHopeTotalClaimed; // total claimed amount of stHOPE rewards
+    uint256 public stHopeWithdrew; // the stHOPE had withrew
+    uint256 public ltTotalClaimed; // total claimed amount of LT rewards
     uint256 public ltRewardsWithdrew; // the LT amount had withrew , only for the partial of rewards
     uint256 public ltWithdrew; // the LT amount had withrew , only for the partial of unlocded
     uint256 public lastEndtime; // save the last endtime of lock
-    uint256 constant public WEEK = 7 * 86400;
-    uint256 constant public LOCK_TIME = 208 * WEEK; // 208 weeks
+    uint256 public constant WEEK = 7 * 86400;
+    uint256 public constant LOCK_TIME = 208 * WEEK; // 208 weeks
 
     // if true, withdrawLT(to,amount) can by called by anyone
     // equivalent amount of XLT will be burn from "to"
-    bool public canWithdrawByAnyone; 
+    bool public canWithdrawByAnyone;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    receive() external payable {}
-
     function initialize(
         address _owner, // muitiSig
-        address _lightTeamVault, 
+        address _lightTeamVault,
         address _feeDistributor,
         address _gaugeFeeDistributor,
         address _stHopeGauge
@@ -87,11 +89,11 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         votingEscrow = ILightGauge(_stHopeGauge).votingEscrow();
         token = ILightGauge(_stHopeGauge).ltToken();
         stHopeGauge = _stHopeGauge;
-    
+
         lightTeamVault = _lightTeamVault;
         feeDistributor = _feeDistributor;
         gaugeFeeDistributor = _gaugeFeeDistributor;
-        
+
         IERC20 _xlt = new XLT(address(this));
         xlt = address(_xlt);
     }
@@ -105,10 +107,10 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
         emit SetCanWithdrawByAnyone(_canWithdrawByAnyone);
     }
-    
+
     /***
      * @dev Claim unlocked LT token from LightTeamVault, then lock them to VoteEscrow for 4 years ,
-     *      and record mintable XLT amount, it can only be called by owner every 24h 
+     *      and record mintable XLT amount, it can only be called by owner every 24h
      * @return amount amount of locked
      */
     function claimUnlockedLTAndLockForVeLT() external onlyOwner returns (uint256) {
@@ -116,7 +118,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         ILightTeamVault(lightTeamVault).claimTo(address(this));
         uint256 claimAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
         require(claimAmount > 0, "LightTeamVaultManager: insufficient balance to lock");
-        mintableXlt += claimAmount; 
+        mintableXlt += claimAmount;
 
         // lock LT to VoteEscrow,  must add Manager to whitelist of VoteEscrow first
         IExtendVotingEscrow _votingEscrow = IExtendVotingEscrow(votingEscrow);
@@ -128,18 +130,17 @@ contract LightTeamVaultManager is OwnableUpgradeable {
             _votingEscrow.createLock(claimAmount, endTime, 0, 0, bytes(""));
         } else {
             _votingEscrow.increaseAmount(claimAmount, 0, 0, bytes(""));
-            if ((endTime / WEEK) * WEEK > lastEndtime)
-                _votingEscrow.increaseUnlockTime(endTime);
+            if ((endTime / WEEK) * WEEK > lastEndtime) _votingEscrow.increaseUnlockTime(endTime);
         }
 
         lastEndtime = (endTime / WEEK) * WEEK;
-        
+
         return claimAmount;
     }
 
     /***
      * @dev Claim unlocked LT token from LightTeamVault to Manager,
-     *      and record mintable XLT amount, it can only be called by owner every 24h  
+     *      and record mintable XLT amount, it can only be called by owner every 24h
      * @return amount amount of claimed
      */
     function claimUnlockedLT() external onlyOwner returns (uint256) {
@@ -147,15 +148,15 @@ contract LightTeamVaultManager is OwnableUpgradeable {
         ILightTeamVault(lightTeamVault).claimTo(address(this));
         uint256 claimAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
         require(claimAmount > 0, "LightTeamVaultManager: insufficient balance to lock");
-        mintableXlt += claimAmount; 
+        mintableXlt += claimAmount;
 
         return claimAmount;
     }
 
     /***
      * @dev Mint amount XLT to "to"
-     * @param to Address of the receiver 
-     * @param amount amount of XLT 
+     * @param to Address of the receiver
+     * @param amount amount of XLT
      */
     function mintXLT(address to, uint amount) external onlyOwner {
         require(mintableXlt >= amount, "LightTeamVaultManager: insufficient mintable amount");
@@ -165,8 +166,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
     /***
      * @dev Burn amount XLT from "from"
-     * @param from Address of the holder 
-     * @param amount amount of XLT 
+     * @param from Address of the holder
+     * @param amount amount of XLT
      */
     function burnXLT(address from, uint amount) external onlyOwner {
         require(IERC20(xlt).balanceOf(from) >= amount, "LightTeamVaultManager: insufficient XLT to burn");
@@ -182,7 +183,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
     /***
      * @dev after claimUnlockedLT or withdrawLTWhenExpired, lock LT to votingEscrow
-     * @param amount amount of LT to lock 
+     * @param amount amount of LT to lock
      * @param unlockTime end time to unlock , if the lock existed, unlockTime must be 0
      */
     function lockLT(uint amount, uint unlockTime) external onlyOwner {
@@ -201,7 +202,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
 
     /***
      * @dev Extend the unlock time
-     * @param unlockTime  
+     * @param unlockTime
      */
     function increaseUnlockTime(uint unlockTime) external onlyOwner {
         IVotingEscrow(votingEscrow).increaseUnlockTime(unlockTime);
@@ -212,13 +213,10 @@ contract LightTeamVaultManager is OwnableUpgradeable {
      * @param gaugeAddress array of gaugeAddress
      * @param userWeights array of userWeight
      */
-    function voteForGaugesWeights(
-        address[] calldata gaugeAddresses, 
-        uint256[] calldata userWeights
-    ) external onlyOwner {
+    function voteForGaugesWeights(address[] calldata gaugeAddresses, uint256[] calldata userWeights) external onlyOwner {
         require(gaugeAddresses.length < 128, "LightTeamVaultManager: length must less than 128");
         require(gaugeAddresses.length == userWeights.length, "LightTeamVaultManager: unmatched length");
-        
+
         address _gaugeController = ILightGauge(stHopeGauge).controller();
         IGaugeController gaugeController = IGaugeController(_gaugeController);
         for (uint i; i < gaugeAddresses.length; ++i) {
@@ -237,7 +235,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
             require(gaugeAddresses[i] != address(0), "LightTeamVaultManager: wrong gauge address");
             uint256 fee = IGaugeFeeDistributor(gaugeFeeDistributor).claim(gaugeAddresses[i], address(this));
             stHopeTotalClaimed += fee;
-        }  
+        }
     }
 
     /***
@@ -288,9 +286,8 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     function withdrawLT(address to, uint amount) external {
         require(msg.sender == owner() || canWithdrawByAnyone, "LightTeamVaultManager: caller is not the owner");
         if (to == address(0)) to = msg.sender;
-        if (msg.sender != owner())
-            require(msg.sender == to, "LightTeamVaultManager: invalid call");
-    
+        if (msg.sender != owner()) require(msg.sender == to, "LightTeamVaultManager: invalid call");
+
         require(IERC20(xlt).balanceOf(to) >= amount, "LightTeamVaultManager: insufficient XLT to burn");
         IXlt(xlt).burn(to, amount);
         ltWithdrew += amount;
@@ -302,7 +299,7 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     /***
      * @dev  withdraw stHLPE that comes from rewarding, if "to" is address(0), it will be withdraw to msg.sender
      * @param to the address withrwaw to
-     * @param amount the amount to withrwaw 
+     * @param amount the amount to withrwaw
      */
     function withdrawStHOPE(address to, uint amount) external onlyOwner {
         if (to == address(0)) to = msg.sender;
