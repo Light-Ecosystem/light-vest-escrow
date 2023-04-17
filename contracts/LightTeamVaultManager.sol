@@ -139,21 +139,6 @@ contract LightTeamVaultManager is OwnableUpgradeable {
     }
 
     /***
-     * @dev Claim unlocked LT token from LightTeamVault to Manager,
-     *      and record mintable XLT amount, it can only be called by owner every 24h
-     * @return amount amount of claimed
-     */
-    function claimUnlockedLT() external onlyOwner returns (uint256) {
-        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
-        ILightTeamVault(lightTeamVault).claimTo(address(this));
-        uint256 claimAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
-        require(claimAmount > 0, "LightTeamVaultManager: insufficient balance to lock");
-        mintableXlt += claimAmount;
-
-        return claimAmount;
-    }
-
-    /***
      * @dev Mint amount XLT to "to"
      * @param to Address of the receiver
      * @param amount amount of XLT
