@@ -104,4 +104,4 @@ If you have any questions about this project, or wish to engage with us:
 
 # License
 
-This project is licensed under the [[AGPL-3.0](https://github.com/Light-Ecosystem/light-dao/blob/dev/LICENSE)](LICENSE) license.
+This project is licensed under the [AGPL-3.0]](LICENSE) license.
